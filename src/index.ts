@@ -145,3 +145,19 @@ export {
   type CorpusServerOptions,
   type IndexedPassageRecord,
 } from './server.js';
+export {
+  AQEL_ENGINE_NAME,
+  AQEL_ENGINE_VERSION,
+  AQEL_FUNCTIONAL_PARTICLES,
+  AQEL_PROVENANCE_NOTE,
+  analyzeArabicText,
+  extractRootCandidate,
+  normalizeArabic,
+  tokenizeArabicWords,
+  type AqelAnalysisResult,
+  type AqelFunctionalParticle,
+  type AqelParticleSummary,
+  type AqelRootCandidate,
+  type AqelToken,
+  type NormalizeArabicOptions,
+} from './aqel.js';

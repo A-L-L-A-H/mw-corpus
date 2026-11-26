@@ -158,6 +158,7 @@ describe('zero-dependency Bun HTTP + MCP citation server', () => {
       'corpus_search_passages',
       'corpus_get_asmaul_husna',
       'corpus_validate_epistemic',
+      'corpus_aqel_analyze',
     ]);
 
     const searchRes = await fetch(`${baseUrl}/api/mcp`, {

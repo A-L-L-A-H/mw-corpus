@@ -12,6 +12,7 @@ import {
   summarizeAsmaulHusnaClusters,
   type AsmaulHusnaCluster,
 } from './asmaul-husna.js';
+import { analyzeArabicText } from './aqel.js';
 import {
   CANON_PROVENANCE_RULES,
   EPISTEMIC_LAYERS,
@@ -143,6 +144,30 @@ export const MCP_TOOL_DEFINITIONS = Object.freeze([
         record: {
           type: 'object',
           description: 'Epistemic provenance record or Q4Q comparative mapping document to validate.',
+        },
+      },
+      additionalProperties: false,
+    },
+  }),
+  Object.freeze({
+    name: 'corpus_aqel_analyze',
+    description:
+      'Run AQEL Arabic-first morphological & lexical segmentation (Uthmani-preserving normalization, functional particle detection, deterministic 3-letter root candidates stamped computational_candidate).',
+    inputSchema: {
+      type: 'object',
+      required: ['text'],
+      properties: {
+        text: {
+          type: 'string',
+          description: 'Arabic or Qur’anic Uthmani text to analyze.',
+        },
+        stripTashkeel: {
+          type: 'boolean',
+          description: 'Strip Arabic diacritics/tashkeel in normalized output (default: true).',
+        },
+        normalizeTaMarbuta: {
+          type: 'boolean',
+          description: 'Normalize ta marbuta (ة -> ه) in normalized output (default: false).',
         },
       },
       additionalProperties: false,
@@ -456,6 +481,34 @@ async function handleMcpRequest(
       });
     }
 
+    if (toolName === 'corpus_aqel_analyze') {
+      const text = typeof args.text === 'string' ? args.text : '';
+      if (text.trim().length === 0) {
+        return jsonResponse({
+          jsonrpc: '2.0',
+          id: rpcId,
+          result: {
+            content: [{ type: 'text', text: JSON.stringify({ error: 'text must be a non-empty string' }) }],
+            isError: true,
+          },
+        });
+      }
+      const outcome = analyzeArabicText(text, {
+        stripTashkeel: typeof args.stripTashkeel === 'boolean' ? args.stripTashkeel : true,
+        normalizeTaMarbuta:
+          typeof args.normalizeTaMarbuta === 'boolean' ? args.normalizeTaMarbuta : false,
+      });
+      return jsonResponse({
+        jsonrpc: '2.0',
+        id: rpcId,
+        result: {
+          content: [{ type: 'text', text: JSON.stringify(outcome) }],
+          structuredContent: outcome,
+          isError: false,
+        },
+      });
+    }
+
     return jsonResponse({
       jsonrpc: '2.0',
       id: rpcId,
@@ -574,6 +627,25 @@ export async function handleCorpusRequest(
     const target = isRecord(body) && 'record' in body ? body.record : body;
     const outcome = validateRecordPayload(target);
     return jsonResponse(outcome, outcome.valid ? 200 : 422);
+  }
+
+  if (pathname === '/api/aqel/analyze') {
+    if (request.method !== 'POST') return jsonResponse({ error: 'Method Not Allowed' }, 405);
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Request body must be valid JSON' }, 400);
+    }
+    if (!isRecord(body) || typeof body.text !== 'string' || body.text.trim().length === 0) {
+      return jsonResponse({ error: 'text must be a non-empty string' }, 400);
+    }
+    const outcome = analyzeArabicText(body.text, {
+      stripTashkeel: typeof body.stripTashkeel === 'boolean' ? body.stripTashkeel : true,
+      normalizeTaMarbuta:
+        typeof body.normalizeTaMarbuta === 'boolean' ? body.normalizeTaMarbuta : false,
+    });
+    return jsonResponse(outcome, 200);
   }
 
   if (pathname === '/api/mcp') {
