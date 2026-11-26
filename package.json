@@ -1,0 +1,44 @@
+{
+  "name": "@moonwitness/corpus",
+  "version": "1.0.0",
+  "description": "MoonWitness Immutable Source Corpus, RGBL/Q4Q/Asmaul Husna & 8-Layer Epistemic Provenance Archive",
+  "type": "module",
+  "engines": {
+    "bun": ">=1.2.0",
+    "node": ">=22.0.0"
+  },
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./server": {
+      "types": "./dist/src/server.d.ts",
+      "import": "./dist/src/server.js"
+    },
+    "./recipe-schema": "./schemas/ingestion-recipe.schema.json",
+    "./q4q-schema": "./schemas/q4q-mapping.schema.json"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "corpus"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "bun test",
+    "start": "bun run src/server.ts",
+    "start:dist": "bun dist/src/server.js"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.15",
+    "typescript": "~5.7.3"
+  }
+}
