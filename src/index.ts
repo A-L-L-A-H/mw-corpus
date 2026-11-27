@@ -161,3 +161,5 @@ export {
   type AqelToken,
   type NormalizeArabicOptions,
 } from './aqel.js';
+export { QdrantClient, type Point } from './qdrant-client.js';
+export { ingestAcademic, type NormalizedRecord } from './academic-ingestor.js';
