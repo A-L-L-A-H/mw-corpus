@@ -162,4 +162,26 @@ export {
   type NormalizeArabicOptions,
 } from './aqel.js';
 export { QdrantClient, type Point } from './qdrant-client.js';
-export { ingestAcademic, type NormalizedRecord } from './academic-ingestor.js';
+export {
+  QURAN_SURAH_INDEX,
+  computeDeterministicEmbedding,
+  generateEpistemicSeedPoints,
+  seedQdrantEpistemicCorpus,
+  type EpistemicSeedPoint,
+  type QdrantSeedReport,
+  type RevelationPeriod,
+  type SurahMetadataEntry,
+} from './qdrant-seed.js';
+export {
+  buildFrontierPaperDigest,
+  ingestAcademic,
+  ingestDailyFrontierDigest,
+  normalizeAcademicWhitespace,
+  normalizeDoi,
+  normalizeTitleForDeduplication,
+  type AcademicSource,
+  type FrontierDigestEntry,
+  type FrontierDigestReport,
+  type FrontierPaperCandidate,
+  type NormalizedRecord,
+} from './academic-ingestor.js';
