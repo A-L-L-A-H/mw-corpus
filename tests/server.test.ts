@@ -224,6 +224,66 @@ describe('zero-dependency Bun HTTP + MCP citation server', () => {
     expect(validateBody.result.structuredContent.valid).toBe(false);
   });
 
+  it('serves POST /api/corpus/search (lexical and vector) and POST /api/corpus/ingest/academic', async () => {
+    const lexicalRes = await fetch(`${baseUrl}/api/corpus/search`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: 'Genesis', topK: 3 }),
+    });
+    expect(lexicalRes.status).toBe(200);
+    const lexicalBody = (await lexicalRes.json()) as {
+      mode: string;
+      count: number;
+      results: Array<{ locator: string }>;
+    };
+    expect(lexicalBody.mode).toBe('lexical');
+    expect(lexicalBody.count).toBe(1);
+    expect(lexicalBody.results[0]?.locator).toBe('Genesis 1:1');
+
+    const vectorRes = await fetch(`${baseUrl}/api/corpus/search`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        collection: 'epistemic-test',
+        upsertPoints: [
+          { id: 'p1', vector: [1, 0], payload: { locator: 'Q7:46' } },
+          { id: 'p2', vector: [0, 1], payload: { locator: 'Genesis 1:1' } },
+        ],
+        vector: [0.9, 0.1],
+        topK: 1,
+      }),
+    });
+    expect(vectorRes.status).toBe(200);
+    const vectorBody = (await vectorRes.json()) as {
+      mode: string;
+      count: number;
+      results: Array<{ id: string }>;
+    };
+    expect(vectorBody.mode).toBe('vector');
+    expect(vectorBody.count).toBe(1);
+    expect(vectorBody.results[0]?.id).toBe('p1');
+
+    const academicRes = await fetch(`${baseUrl}/api/corpus/ingest/academic`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'arxiv',
+        id: '2401.00001',
+        mockXml:
+          '<feed><entry><title>Epistemic Verification Paper</title><summary>Formal SHA-256 citation provenance.</summary></entry></feed>',
+      }),
+    });
+    expect(academicRes.status).toBe(200);
+    const academicBody = (await academicRes.json()) as {
+      status: string;
+      record: { id: string; title: string; sha256: string };
+    };
+    expect(academicBody.status).toBe('ingested');
+    expect(academicBody.record.id).toBe('2401.00001');
+    expect(academicBody.record.title).toBe('Epistemic Verification Paper');
+    expect(academicBody.record.sha256).toMatch(/^[a-f0-9]{64}$/);
+  });
+
   it('returns clean 404 and 405 responses for unknown routes or wrong HTTP verbs', async () => {
     const notFound = await fetch(`${baseUrl}/api/unknown`);
     expect(notFound.status).toBe(404);

@@ -28,8 +28,14 @@ import {
 } from './q4q-schema.js';
 import { readQuranPassage } from './quran-passage.js';
 import { readTextualWitnessPassage } from './textual-witness-passage.js';
+import { QdrantClient, type Point } from './qdrant-client.js';
+import { ingestAcademic } from './academic-ingestor.js';
 
 export const DEFAULT_CORPUS_PORT = 4420;
+const defaultQdrantClient = new QdrantClient({
+  url: process.env.QDRANT_URL,
+  apiKey: process.env.QDRANT_API_KEY,
+});
 export const SERVICE_NAME = 'mw-corpus';
 export const SERVICE_VERSION = '1.0.0';
 
@@ -646,6 +652,123 @@ export async function handleCorpusRequest(
         typeof body.normalizeTaMarbuta === 'boolean' ? body.normalizeTaMarbuta : false,
     });
     return jsonResponse(outcome, 200);
+  }
+
+  if (pathname === '/api/corpus/search') {
+    if (request.method !== 'POST') return jsonResponse({ error: 'Method Not Allowed' }, 405);
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Request body must be valid JSON' }, 400);
+    }
+    if (!isRecord(body)) {
+      return jsonResponse({ error: 'Request body must be a JSON object' }, 400);
+    }
+    const collection = typeof body.collection === 'string' && body.collection.trim().length > 0
+      ? body.collection.trim()
+      : 'corpus';
+    const topK = typeof body.topK === 'number' && Number.isInteger(body.topK) && body.topK > 0
+      ? body.topK
+      : 5;
+
+    if (Array.isArray(body.upsertPoints)) {
+      const pointsToUpsert: Point[] = [];
+      for (const candidate of body.upsertPoints) {
+        if (
+          isRecord(candidate) &&
+          (typeof candidate.id === 'string' || typeof candidate.id === 'number') &&
+          Array.isArray(candidate.vector) &&
+          candidate.vector.every((val) => typeof val === 'number')
+        ) {
+          pointsToUpsert.push({
+            id: candidate.id,
+            vector: candidate.vector as number[],
+            payload: isRecord(candidate.payload) ? candidate.payload : undefined,
+          });
+        }
+      }
+      if (pointsToUpsert.length > 0) {
+        await defaultQdrantClient.upsert(collection, pointsToUpsert);
+      }
+    }
+
+    if (Array.isArray(body.vector) && body.vector.every((val) => typeof val === 'number')) {
+      const points = await defaultQdrantClient.search(collection, body.vector as number[], topK);
+      return jsonResponse({
+        mode: 'vector',
+        collection,
+        topK,
+        count: points.length,
+        results: points,
+      }, 200);
+    }
+
+    const query = typeof body.query === 'string' ? body.query : undefined;
+    const kind =
+      body.kind === 'quran' || body.kind === 'textual_witness' || body.kind === 'all'
+        ? body.kind
+        : 'all';
+    const editionId = typeof body.editionId === 'string' ? body.editionId : undefined;
+    const locator = typeof body.locator === 'string' ? body.locator : undefined;
+    if (!query && !editionId && !locator && !Array.isArray(body.vector)) {
+      return jsonResponse({ error: 'Provide either vector (number[]) or query/editionId/locator' }, 400);
+    }
+    const passages = await loadIndexedPassages(context.rootDirectory, {
+      query,
+      kind,
+      editionId,
+      locator,
+    });
+    const sliced = passages.slice(0, topK);
+    return jsonResponse({
+      mode: 'lexical',
+      topK,
+      count: sliced.length,
+      results: sliced,
+      passages: sliced,
+    }, 200);
+  }
+
+  if (pathname === '/api/corpus/ingest/academic') {
+    if (request.method !== 'POST') return jsonResponse({ error: 'Method Not Allowed' }, 405);
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Request body must be valid JSON' }, 400);
+    }
+    if (
+      !isRecord(body) ||
+      (body.source !== 'arxiv' && body.source !== 'openalex') ||
+      typeof body.id !== 'string' ||
+      body.id.trim().length === 0
+    ) {
+      return jsonResponse(
+        { error: 'source must be "arxiv" or "openalex" and id must be a non-empty string' },
+        400,
+      );
+    }
+    try {
+      const inlineFetch: typeof fetch | undefined =
+        typeof body.mockXml === 'string'
+          ? ((async () => new Response(body.mockXml as string, { status: 200 })) as unknown as typeof fetch)
+          : isRecord(body.mockJson)
+            ? ((async () =>
+                new Response(JSON.stringify(body.mockJson), { status: 200 })) as unknown as typeof fetch)
+            : undefined;
+      const record = await ingestAcademic({
+        source: body.source,
+        id: body.id.trim(),
+        fetch: inlineFetch,
+      });
+      return jsonResponse({ status: 'ingested', record }, 200);
+    } catch (err) {
+      return jsonResponse(
+        { error: err instanceof Error ? err.message : 'Academic ingestion failed' },
+        502,
+      );
+    }
   }
 
   if (pathname === '/api/mcp') {
