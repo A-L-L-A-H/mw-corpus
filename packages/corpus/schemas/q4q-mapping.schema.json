@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonwitness.local/schema/q4q-mapping/1",
+  "title": "MoonWitness Q4Q 4-Kitab comparative witness mapping",
+  "description": "Versioned comparative mapping across Taurat, Zabur, Injil, and Qur'an with explicit evidence classes and strict separation between surviving witness editions and revelation identities.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "schemaVersion", "mappingId", "title", "policy", "entries"],
+  "properties": {
+    "format": { "const": "moonwitness-q4q/v1" },
+    "schemaVersion": { "const": 1 },
+    "mappingId": { "type": "string", "pattern": "^mw:q4q:[a-z0-9][a-z0-9._-]{0,99}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inferIdentityEquivalence",
+        "canonImpliesRevelationIdentity",
+        "quranSupervisoryCriterion"
+      ],
+      "properties": {
+        "inferIdentityEquivalence": { "const": false },
+        "canonImpliesRevelationIdentity": { "const": false },
+        "quranSupervisoryCriterion": { "type": "boolean" }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entryId",
+          "kitab",
+          "revelationIdentityId",
+          "witnessExpressionId",
+          "editionId",
+          "locator",
+          "evidenceClass",
+          "epistemicLayer",
+          "equatesWitnessToRevelation",
+          "evidenceIds"
+        ],
+        "properties": {
+          "entryId": { "type": "string", "pattern": "^mw:q4q-entry:[a-z0-9][a-z0-9._-]{0,99}$" },
+          "kitab": { "enum": ["taurat", "zabur", "injil", "quran"] },
+          "revelationIdentityId": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "enum": [
+                  "mw:work:taurat-revelation",
+                  "mw:work:zabur-revelation",
+                  "mw:work:injil-revelation",
+                  "mw:work:quran-revelation"
+                ]
+              }
+            ]
+          },
+          "witnessExpressionId": {
+            "type": "string",
+            "pattern": "^mw:expression:[a-z0-9][a-z0-9._-]{0,99}$"
+          },
+          "editionId": {
+            "type": "string",
+            "pattern": "^mw:edition:[a-z0-9][a-z0-9._-]{0,99}$"
+          },
+          "sourceArtifactId": {
+            "type": "string",
+            "pattern": "^mw:artifact:[a-z0-9][a-z0-9._-]{0,99}$"
+          },
+          "locator": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "traditionCanon": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "evidenceClass": {
+            "enum": ["Q_EXPLICIT", "Q_CROSS", "TRADITION", "CREED", "SYNTHESIS", "HYPOTHESIS"]
+          },
+          "epistemicLayer": {
+            "enum": [
+              "source_text",
+              "textual_witness",
+              "translation",
+              "tafsir",
+              "historical_context",
+              "personal_reflection",
+              "creative_metaphor",
+              "ai_hypothesis"
+            ]
+          },
+          "equatesWitnessToRevelation": { "const": false },
+          "evidenceIds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+          },
+          "analyticalNotes": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    }
+  }
+}
