@@ -13,8 +13,22 @@
         "typescript": "~5.7.3",
       },
     },
+    "packages/corpus": {
+      "name": "@moonwitness/corpus-server",
+      "version": "1.0.0",
+      "dependencies": {
+        "ajv": "^8.20.0",
+        "ajv-formats": "^3.0.0",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.2.15",
+        "typescript": "~5.7.3",
+      },
+    },
   },
   "packages": {
+    "@moonwitness/corpus-server": ["@moonwitness/corpus-server@workspace:packages/corpus"],
+
     "@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
 
     "@types/node": ["@types/node@26.6.11", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-uUyQ2XLEz+EXh34lmS3GhKrkqn/8FU7KUiKRpk347At2bmnMVWss45yz8b4FG/tUtmV1tV/+TVkITItPROyeeQ=="],
