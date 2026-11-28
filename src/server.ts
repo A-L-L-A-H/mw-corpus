@@ -29,7 +29,13 @@ import {
 import { readQuranPassage } from './quran-passage.js';
 import { readTextualWitnessPassage } from './textual-witness-passage.js';
 import { QdrantClient, type Point } from './qdrant-client.js';
-import { ingestAcademic } from './academic-ingestor.js';
+import { seedQdrantEpistemicCorpus } from './qdrant-seed.js';
+import {
+  buildFrontierPaperDigest,
+  ingestAcademic,
+  type AcademicSource,
+  type FrontierPaperCandidate,
+} from './academic-ingestor.js';
 
 export const DEFAULT_CORPUS_PORT = 4420;
 const defaultQdrantClient = new QdrantClient({
@@ -738,14 +744,44 @@ export async function handleCorpusRequest(
     } catch {
       return jsonResponse({ error: 'Request body must be valid JSON' }, 400);
     }
+    if (!isRecord(body)) {
+      return jsonResponse({ error: 'Request body must be a JSON object' }, 400);
+    }
+    if (Array.isArray(body.candidates)) {
+      const candidates: FrontierPaperCandidate[] = [];
+      for (const item of body.candidates) {
+        if (
+          isRecord(item) &&
+          (item.source === 'arxiv' || item.source === 'openalex' || item.source === 'crossref') &&
+          typeof item.id === 'string' &&
+          typeof item.title === 'string' &&
+          typeof item.abstract === 'string'
+        ) {
+          candidates.push({
+            source: item.source,
+            id: item.id,
+            title: item.title,
+            abstract: item.abstract,
+            doi: typeof item.doi === 'string' ? item.doi : undefined,
+            publishedAt: typeof item.publishedAt === 'string' ? item.publishedAt : undefined,
+            authors: Array.isArray(item.authors)
+              ? item.authors.filter((a): a is string => typeof a === 'string')
+              : undefined,
+          });
+        }
+      }
+      const digest = buildFrontierPaperDigest(candidates, {
+        digestDate: typeof body.digestDate === 'string' ? body.digestDate : undefined,
+      });
+      return jsonResponse({ status: 'digest_ready', digest }, 200);
+    }
     if (
-      !isRecord(body) ||
-      (body.source !== 'arxiv' && body.source !== 'openalex') ||
+      (body.source !== 'arxiv' && body.source !== 'openalex' && body.source !== 'crossref') ||
       typeof body.id !== 'string' ||
       body.id.trim().length === 0
     ) {
       return jsonResponse(
-        { error: 'source must be "arxiv" or "openalex" and id must be a non-empty string' },
+        { error: 'source must be "arxiv", "openalex", or "crossref" and id must be a non-empty string' },
         400,
       );
     }
@@ -758,7 +794,7 @@ export async function handleCorpusRequest(
                 new Response(JSON.stringify(body.mockJson), { status: 200 })) as unknown as typeof fetch)
             : undefined;
       const record = await ingestAcademic({
-        source: body.source,
+        source: body.source as AcademicSource,
         id: body.id.trim(),
         fetch: inlineFetch,
       });
@@ -769,6 +805,42 @@ export async function handleCorpusRequest(
         502,
       );
     }
+  }
+
+  if (pathname === '/api/corpus/seed/qdrant') {
+    if (request.method !== 'POST') return jsonResponse({ error: 'Method Not Allowed' }, 405);
+    let body: Record<string, unknown> = {};
+    try {
+      const parsed = await request.json();
+      if (isRecord(parsed)) body = parsed;
+    } catch {
+      body = {};
+    }
+    const collection =
+      typeof body.collection === 'string' && body.collection.trim().length > 0
+        ? body.collection.trim()
+        : 'mw-epistemic-seed';
+    const dimension =
+      typeof body.dimension === 'number' && Number.isInteger(body.dimension) && body.dimension > 0
+        ? body.dimension
+        : 16;
+    const report = await seedQdrantEpistemicCorpus({
+      client: defaultQdrantClient,
+      collection,
+      dimension,
+    });
+    return jsonResponse(
+      {
+        status: 'seeded',
+        collection: report.collection,
+        dimension: report.dimension,
+        surahCount: report.surahCount,
+        asmaulHusnaCount: report.asmaulHusnaCount,
+        totalPoints: report.totalPoints,
+        merkleDigestSha256: report.merkleDigestSha256,
+      },
+      200
+    );
   }
 
   if (pathname === '/api/mcp') {
